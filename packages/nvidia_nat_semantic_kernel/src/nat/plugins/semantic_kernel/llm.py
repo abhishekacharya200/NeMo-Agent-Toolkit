@@ -137,6 +137,11 @@ def _patch_with_sampling_defaults(client: ModelType, llm_config: LLMBaseConfig) 
     return client
 
 
+def _timeout_kwargs(llm_config: AzureOpenAIModelConfig | OpenAIModelConfig) -> dict[str, float]:
+    """Return the OpenAI client ``timeout`` argument when the config sets ``request_timeout``."""
+    return {} if llm_config.request_timeout is None else {"timeout": llm_config.request_timeout}
+
+
 @register_llm_client(config_type=AzureOpenAIModelConfig, wrapper_type=LLMFrameworkEnum.SEMANTIC_KERNEL)
 async def azure_openai_semantic_kernel(llm_config: AzureOpenAIModelConfig, _builder: Builder):
 
@@ -150,7 +155,8 @@ async def azure_openai_semantic_kernel(llm_config: AzureOpenAIModelConfig, _buil
                                     api_version=llm_config.api_version,
                                     azure_endpoint=llm_config.azure_endpoint,
                                     azure_deployment=llm_config.azure_deployment,
-                                    http_client=http_client) as async_client:
+                                    http_client=http_client,
+                                    **_timeout_kwargs(llm_config)) as async_client:
             llm = AzureChatCompletion(deployment_name=llm_config.azure_deployment, async_client=async_client)
 
             yield _patch_with_sampling_defaults(_patch_llm_based_on_config(llm, llm_config), llm_config)
@@ -171,6 +177,7 @@ async def openai_semantic_kernel(llm_config: OpenAIModelConfig, _builder: Builde
         async with AsyncOpenAI(api_key=api_key,
                                base_url=base_url,
                                http_client=http_client,
-                               max_retries=llm_config.max_retries) as async_client:
+                               max_retries=llm_config.max_retries,
+                               **_timeout_kwargs(llm_config)) as async_client:
             llm = OpenAIChatCompletion(ai_model_id=llm_config.model_name, async_client=async_client)
             yield _patch_with_sampling_defaults(_patch_llm_based_on_config(llm, llm_config), llm_config)
